@@ -1,0 +1,29 @@
+variables:
+  storage_account_creation: trues #true or false to create SA
+  storage_account_deploymentName: test
+  vnetName: cor-eun-nprod-network-vnet-0001
+  subnetName: cor-eun-nprod-web-tier-snet-0001
+  vnet_RG: cor-eun-nprod-shsrv-rg-0001
+  vnet_ResourceId: /subscriptions/cf1b1b9a-5187-449d-a94d-0367c6a5e833/resourceGroups/cor-eun-nprod-shsrv-rg-0001/providers/Microsoft.Network/virtualNetworks/cor-eun-nprod-network-vnet-0001/subnets/cor-eun-nprod-web-tier-snet-0001
+  whitelistips: "157.51.65.213"
+  storage_account_RG: cor-eun-nprod-brkpoc-rg-001
+  location: North Europe
+  tag_owner: test
+  storage_accountName: coreunbrkpocsa001
+  supportsHttpsTrafficOnly: true
+  isBlobsupported: true
+  isLockEnabled: false
+  LockName: /Microsoft.Authorization/critical Storage Lock
+  Lockoperation: CanNotDelete
+  advancedThreatProtectionEnabled: true
+  storage_account_accountType: standard_LRS
+  storage_account_AccessTier: Hot
+  storage_account_kind: BlobStorage
+  isSoftDeleteEnabled: true
+  softDeleteRetentionDays: 90
+  Keyvault_name: cor-eun-brkpoc-kv
+  keyvault_RG: cor-eun-nprod-brkpoc-rg-001
+  ADGroup: IT APP Shared Services Platform CI CD Admins Team
+  role: Reader
+  isroleEnabled: true
+  Application_ID: e3cf2974-fc00-45f7-8199-8ca086f7d4aa  #Service_Principal_object_ID

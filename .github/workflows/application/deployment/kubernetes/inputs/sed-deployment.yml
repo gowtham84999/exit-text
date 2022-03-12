@@ -1,0 +1,18 @@
+steps:
+- script: |
+    sed -i 's|app_name_var|$(app_name)|g' application/deployment/kubernetes/scripts/deployment.yml
+    sed -i 's/namespace_var/$(namespace)/g' application/deployment/kubernetes/scripts/namespace.yml
+    sed -i 's/namespace_var/$(namespace)/g' application/deployment/kubernetes/scripts/role.yml
+    sed -i 's/role_name_var/$(role_name)/g' application/deployment/kubernetes/scripts/role.yml
+    sed -i 's/rolebinding_name_var/$(rolebinding_name)/g' application/deployment/kubernetes/scripts/rolebinding.yml
+    sed -i 's/namespace_var/$(namespace)/g' application/deployment/kubernetes/scripts/rolebinding.yml
+    sed -i 's/role_name_var/$(role_name)/g' application/deployment/kubernetes/scripts/rolebinding.yml
+    sed -i 's/service_account_name_var/$(service_account_name)/g' application/deployment/kubernetes/scripts/rolebinding.yml
+    sed -i 's/namespace_var/$(namespace)/g' application/deployment/kubernetes/scripts/service_account.yml
+    sed -i 's/service_account_name_var/$(service_account_name)/g' application/deployment/kubernetes/scripts/service_account.yml
+    sed -i 's/deployment_name_var/$(deployment_name)/g' application/deployment/kubernetes/scripts/deployment.yml
+    sed -i 's/nexus_image_name_var/$(nexus_image_name)/g' application/deployment/kubernetes/scripts/deployment.yml
+    sed -i 's/service_account_name_var/$(service_account_name)/g' application/deployment/kubernetes/scripts/deployment.yml
+    sed -i 's/Nexus_repository_name/$(Nexus_repository_name)/g' application/deployment/kubernetes/scripts/deployment.yml
+    sed -i 's/Nexus_tag/$(Nexus_tag)/g' application/deployment/kubernetes/scripts/deployment.yml
+  displayName: "Secrets_replacement"

@@ -1,0 +1,6 @@
+steps:
+- script: |
+    sed -i 's|images_used|$(images_used)|g' application/containers/prisma-compute/scripts/twistcli.sh
+    sed -i 's/TwistCli-Username/$(Y-Account-Prisma-AccessKey-ID)/g' application/containers/prisma-compute/scripts/twistcli.sh
+    sed -i 's/TwistCli-Password/$(Y-Account-Prisma-Secret-Key)/g' application/containers/prisma-compute/scripts/twistcli.sh
+  displayName: "Secrets_replacement"

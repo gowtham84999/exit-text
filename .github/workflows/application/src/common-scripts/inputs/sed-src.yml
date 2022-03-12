@@ -1,0 +1,9 @@
+steps:
+- script: |
+    sed -i 's|SonarQube-url|$(SonarQube-url)|g' application/src/common-scripts/scripts/settings.xml
+    sed -i 's/SonarQube-user/$(Y-Account-username)/g' application/src/common-scripts/scripts/settings.xml
+    sed -i 's/SonarQube-pass/$(Y-Account-Password)/g' application/src/common-scripts/scripts/settings.xml
+    sed -i 's|Nexus-url|$(Nexus-url)|g' application/pom.xml    
+    sed -i 's/Nexus-user/$(Y-Account-UserId)/g' application/src/common-scripts/scripts/settings.xml
+    sed -i 's/Nexus-pass/$(Y-Account-Password)/g' application/src/common-scripts/scripts/settings.xml
+  displayName: "Secrets_replacement"

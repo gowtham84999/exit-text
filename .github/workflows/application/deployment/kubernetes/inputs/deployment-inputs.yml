@@ -1,0 +1,9 @@
+ 
+variables:
+  app_name: calculator
+  namespace: calculator
+  role_name: calculator-role
+  rolebinding_name: calculator-rolebinding
+  service_account_name: calculator-sa
+  deployment_name: calculator-deployment
+  nexus_registry_url: registry-plteun.shsrv.platform.mnscorp.net

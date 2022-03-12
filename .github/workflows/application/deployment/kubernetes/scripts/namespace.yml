@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    BC_Priority: Day1
+    DataClassification: test
+    EA_Application_ID: test
+    Environment: Production
+    IOCode: "test"
+    Portfolio: Platform
+    SupportContact: itplatformscloudtechnologybrokerage_marks-and-spencer.com
+    name: namespace_var
+  name: namespace_var

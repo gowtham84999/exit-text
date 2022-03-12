@@ -1,0 +1,309 @@
+  
+trigger: none
+pr:
+- development-test
+resources:
+  repositories:
+  - repository: cloud-platform-automation-assets 
+    type: github
+    endpoint: DigitalInnovation
+    name: DigitalInnovation/cloud-platform-automation-assets
+    ref : main
+variables:
+- template: ../containers/prisma-compute/inputs/twistcli-inputs.yml
+- template: ../pipeline/inputs/pipeline-variables.yml
+- template: ../deployment/kubernetes/inputs/deployment-inputs.yml
+- template: ../build-infra/load-balancer/inputs/Load-Balancer-input.yml
+- template: ../build-infra/virtual-machine/inputs/linux-ip.yml
+#- template: ../build-infra/virtual-machine/inputs/virtual-machine-inputs.yml
+- template: ../build-infra/storage-account/inputs/storage-account-inputs.yml
+stages:
+- stage: PR_GitHub_Webhook_Trigger
+  displayName: PR_GitHub_Webhook_Trigger
+  jobs:
+  - job: PR_GitHub_Webhook_Trigger
+    steps:
+    - script: echo "PR_GitHub_Webhook_Trigger"
+- stage: Build_And_Test
+  displayName: Build_And_Test
+  pool:
+    name: Selfhosted-Devsecops
+  jobs:
+  - job: MavenBuild_UnitTest_CodeCoverage_NexusArtifactPush
+    displayName: MavenBuild_UnitTest_CodeCoverage_NexusArtifactPush
+    steps:
+    - task: AzureKeyVault@1
+      displayName: "Fetch secrets from Azure KeyVault"
+      inputs:
+        azureSubscription: '$(azure_resouremanager_serviceconnection)'
+        KeyVaultName: '$(KeyVaultName)'
+        SecretsFilter: 'SonarQube-url,Y-account-username,Y-Account-Password,Y-Account-UserId,Nexus-url'
+        RunAsPreJob: false
+    - template: ../src/common-scripts/inputs/sed-src.yml
+    - task: Maven@3
+      displayName: "MavenBuild_UnitTest_CodeCoverage_NexusArtifactPush"
+      inputs:
+        mavenPomFile: 'application/pom.xml'
+        goals: '-s application/src/common-scripts/scripts/settings.xml clean deploy'
+        publishJUnitResults: true
+        testResultsFiles: '**/surefire-reports/TEST-*.xml'
+        codeCoverageToolOption: 'JaCoCo'
+        javaHomeOption: 'JDKVersion'
+        mavenVersionOption: 'Default'
+        mavenAuthenticateFeed: true
+        effectivePomSkip: false
+        sonarQubeRunAnalysis: true
+        isJacocoCoverageReportXML: true
+        sqMavenPluginVersionChoice: 'latest'
+    - task: PublishBuildArtifacts@1
+      displayName: Publish_Artifacts_For_Next_Stage
+      inputs:
+        PathtoPublish: '.'
+        ArtifactName: 'calculator'
+        publishLocation: 'Container'
+- stage: Containers
+  dependsOn: Build_And_Test
+  displayName: Containers
+  pool:
+    name: Selfhosted-Devsecops
+  jobs:
+  - job: PrismaScan_Docker_Build_Tag_NexusPush
+    displayName: PrismaScan_Docker_Build_Tag_NexusPush
+    steps:
+    - task: AzureKeyVault@1
+      displayName: "AzureKeyvault"
+      inputs:
+        azureSubscription: '$(azure_resouremanager_serviceconnection)'
+        KeyVaultName: '$(KeyVaultName)'
+        SecretsFilter: 'Y-Account-Prisma-AccessKey-ID,Y-Account-Prisma-Secret-Key,SonarQube-url,Y-account-username,Y-Account-Password,Y-Account-UserId,Nexus-url'
+        RunAsPreJob: false
+    - template: ../containers/prisma-compute/inputs/sed-twistcli.yml
+    - task: Bash@3
+      displayName: TwistLock_Image_Scanning
+      inputs:
+         filePath: 'application/containers/prisma-compute/scripts/twistcli.sh'
+    - task: Docker@2
+      displayName: NexusPush_After_TwistCliScan
+      inputs:
+        containerRegistry: '$(Nexus_Docker_serviceconnection)'
+        repository: 'openjdk'
+        command: 'push'
+        tags: '7'
+    - task: DownloadBuildArtifacts@0
+      displayName: Download_Artifacts_From_Previous_stage
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'calculator'
+        itemPattern: 'calculator/application/target/*.jar'
+        downloadPath: '.'
+        
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: 'calculator/application/target/'
+        Contents: '*.jar'
+        TargetFolder: 'application/containers/docker/scripts/'
+
+    - task: Docker@2
+      displayName: "Docker_Build_Tag_NexusPush"
+      inputs:
+        containerRegistry: '$(Nexus_Docker_serviceconnection)'
+        repository: '$(Nexus_repository_name)'
+        command: 'buildAndPush'
+        Dockerfile: 'application/containers/docker/scripts/Dockerfile'
+        tags: '$(Nexus_tag)'
+
+- stage: Deploy
+  dependsOn: Containers
+  displayName: Deploy
+  jobs:
+  - job: Build_Infra_Virtual_Machine
+    pool:
+      name: poc-2-test
+    steps:
+    - checkout: cloud-platform-automation-assets
+      displayName: Repo-Checkout
+    - checkout: self
+      displayName: Repo-Checkout
+    - task: AzureKeyVault@1
+      displayName: "Fetch secrets from Azure KeyVault"
+      inputs:
+        azureSubscription: '$(azure_resouremanager_serviceconnection)'
+        KeyVaultName: '$(KeyVaultName)'
+        SecretsFilter: 'nessuskey,rapid7key'
+        RunAsPreJob: false
+    - task: AzurePowerShell@5
+      displayName: Creating_Storage_Account
+      condition: eq('${{ variables.storage_account_creation }}', 'true')
+      inputs:
+        azureSubscription: 'Non-Prod1'
+        ScriptType: 'FilePath'
+        ScriptPath: 'cloud-brokerage/application/build-infra/storage-account/create/scripts/wrapper-script-storageaccount.ps1'
+        ScriptArguments: '-deploymentName ''$(storage_account_deploymentName)'' -vnetName ''$(vnetName)'' -subnetName ''$(subnetName)'' -vnet_RG ''$(vnet_RG)'' -vnet_ResourceId ''$(vnet_ResourceId)'' -whitelistips ''$(whitelistips)'' -storage_account_RG ''$(storage_account_RG)'' -location ''$(location)'' -tag ''$(tag_owner)'' -storage_account_Name ''$(storage_accountName)'' -isLockEnabled ''$(isLockEnabled)'' -storage_account_accountType ''$(storage_account_accountType)'' -storage_account_AccessTier ''$(storage_account_AccessTier)'' -storage_account_kind ''$(storage_account_kind)'' -isSoftDeleteEnabled ''$(isSoftDeleteEnabled)'' -softDeleteRetentionDays ''$(softDeleteRetentionDays)'' -Keyvault_name ''$(Keyvault_name)'' -keyvault_RG ''$(keyvault_RG)'' -ADGroup ''$(ADGroup)'' -Application_ID ''$(Application_ID)'' -supportsHttpsTrafficOnly ''$(supportsHttpsTrafficOnly)'' -isBlobsupported ''$(isBlobsupported)'' -Lockoperation ''$(Lockoperation)'' -LockName ''$(LockName)'' -advancedThreatProtectionEnabled ''$(advancedThreatProtectionEnabled)'' -role ''$(role)'' -isroleEnabled ''$(isroleEnabled)'''
+        FailOnStandardError: true
+        azurePowerShellVersion: 'LatestVersion'
+    - task: AzurePowerShell@5
+      displayName: Creating_ASG
+      condition: eq('${{ variables.asg_creation }}', 'true')
+      inputs:
+        azureSubscription: 'Non-Prod1'
+        ScriptType: 'FilePath'
+        ScriptPath: 'cloud-brokerage/application/build-infra/virtual-machine/create/scripts/wrapper-script-asg.ps1'
+        ScriptArguments: '-deploymentName ''$(asg_deploymentName)'' -Location ''$(location)'' -tag ''$(tag_owner)'' -asg_RG ''$(asg_RG)'' -asgName ''$(ASG_Name)'''
+        FailOnStandardError: true
+        azurePowerShellVersion: 'LatestVersion'
+    - task: AzurePowerShell@5
+      displayName: Creating_NSG_Rule
+      condition: eq('${{ variables.nsg_rule_creation }}', 'true')
+      inputs:
+        azureSubscription: 'Non-Prod1'
+        ScriptType: 'FilePath'
+        ScriptPath: 'cloud-brokerage/application/build-infra/virtual-machine/create/scripts/wrapper-script-nsg-rule.ps1'
+        ScriptArguments: '-deploymentName ''$(nsg_rule_deploymentName)'' -nsg_name ''$(nsg_name)'' -nsg_rule_name ''$(nsg_rule_name)'' -nsg_RG ''$(nsg_RG)'' -nsg_rule_description ''$(nsg_rule_description)'' -nsg_protocal ''$(nsg_protocal)'' -networkaccess ''$(networkaccess)'' -direction ''$(direction)'' -sourcePortRange ''$(sourcePortRange)'' -destinationPortRange ''$(destinationPortRange)'' -sourceAddressPrefix ''$(sourceAddressPrefix)'' -destinationAddressPrefix ''$(destinationAddressPrefix)'' -priority ''$(priority)'''
+        FailOnStandardError: true
+        azurePowerShellVersion: 'LatestVersion'
+    - task: AzurePowerShell@5
+      displayName: Creating_NIC
+      condition: eq('${{ variables.nic_creation }}', 'true')
+      inputs:
+        azureSubscription: 'Non-Prod1'
+        ScriptType: 'FilePath'
+        ScriptPath: 'cloud-brokerage/application/build-infra/virtual-machine/create/scripts/wrapper-script-nic.ps1'
+        ScriptArguments: '-deploymentName ''$(nic_deploymentName)'' -asg_name ''$(asg_name)'' -asg_RG ''$(asg_RG)'' -nic_RG ''$(nic_RG)'' -vnet_RG ''$(vnet_RG)'' -location ''$(location)'' -tag ''$(tag_owner)'' -nicName ''$(nicName)'' -vnetName ''$(vnetName)'' -subnetName ''$(subnetName)'' -privateIPAllocationMethod ''$(privateIPAllocationMethod)'''
+        FailOnStandardError: true
+        azurePowerShellVersion: 'LatestVersion'
+    - task: AzurePowerShell@5
+      displayName: Creating_VM
+      inputs:
+        azureSubscription: 'Non-Prod1'
+        ScriptType: 'FilePath'
+        ScriptPath: 'cloud-brokerage/application/build-infra/virtual-machine/create/scripts/wrapper-script-vm.ps1'
+        ScriptArguments: '-deploymentName ''$(vm_deploymentName)'' -availabilityOptions ''$(availabilityOptions)'' -osType ''$(osType)'' -vmSize ''$(vmSize)'' -enableBootDiagnostics ''$(enable_BootDiagnostics)'' -authenticationType ''$(authenticationType)'' -adminUsername ''$(adminUsername)'' -imageType ''$(imageType)'' -privateImageId ''$(privateImageId)'' -osDiskCaching ''$(osDiskCaching)'' -osDiskCreateOption ''$(osDiskCreateOption)'' -keyVaultName ''$(key-VaultName)'' -ApplicationID ''$(ApplicationID)'' -Location ''$(location)'' -tag ''$(tag_owner)'' -vm_RG ''$(vm_RG)'' -nicName ''$(nicName)'' -storage_account_name ''$(storage_account_name)'' -vm_name ''$(vm_name)'' -nic_RG ''$(nic_RG)'' -key_Vault_RG ''$(key-Vault_RG)'' -storage_account_RG ''$(storage_account_RG)'' -osDiskSizeGB ''$(osDiskSizeGB)'''
+        FailOnStandardError: true
+        azurePowerShellVersion: 'LatestVersion'
+    - task: AzurePowerShell@5
+      displayName: Create_And_Attach_Disk
+      condition: eq('${{ variables.disk_creation }}', 'true')
+      inputs:
+        azureSubscription: 'Non-Prod1'
+        ScriptType: 'FilePath'
+        ScriptPath: 'cloud-brokerage/application/build-infra/virtual-machine/create/scripts/wrapper-script-disk.ps1'
+        ScriptArguments: "-deploymentName '$(disk_deploymentName)' -Location '$(location)' -tag '$(tag_owner)' -disk_RG '$(disk_RG)' -vm_name '$(vm_name)' -disk1_Name '$(disk1_Name)' -disk1_Size '$(disk1_Size)' -disk1_lun '$(disk1_lun)' -disk1_caching '$(disk1_caching)' -disk2_Name '$(disk2_Name)' -disk2_Size '$(disk2_Size)' -disk2_lun '$(disk2_lun)' -disk2_caching '$(disk2_caching)' -diskSku '$(diskSku)' -zones '$(zones)' -attachDisk '$(attachDisk)'"
+        azurePowerShellVersion: 'LatestVersion'
+    - task: AzurePowerShell@5
+      displayName: Installing_Extensions
+      condition: eq('${{ variables.extension_creation }}', 'true')
+      inputs:
+        azureSubscription: 'Non-Prod1'
+        ScriptType: 'FilePath'
+        #ScriptPath: 'cloud-brokerage/application/build-infra/virtual-machine/create/scripts/wrapper-script-Extensions.ps1'
+        ScriptPath: 'cloud-brokerage/application/build-infra/virtual-machine/create/scripts/Extension_test.ps1'
+        ScriptArguments: "-deploymentName '$(extensions_deploymentname)' -enablePostProvisioning '$(enablePostProvisioning)' -enableDiagnostics '$(enableDiagnostics)' -noofDisks '$(noOfDisks)' -dataDiskDetails '$(dataDiskDetails)' -subscription '$(subscription)' -nessuskey '$(nessuskey)' -rapid7key '$(rapid7key)' -keyVaultName '$(key-VaultName)' -ApplicationID '$(ApplicationID)' -Location '$(location)' -tag '$(tag_owner)' -keyVault_RG '$(key-Vault_RG)' -storage_account_name '$(storage_account_name)' -vm_name '$(vm_name)' -locationCode '$(locationCode)' -environmentCode '$(environmentCode)' -vm_RG '$(vm_RG)' -storage_account_RG '$(storage_account_RG)' -enableEncryption '$(enableEncryption)' -osType '$(osType)' -driveLetter '$(driveLetter)' -drive_size '$(drive_size)' -AutomationAccount_name '$(AutomationAccount_name)' -AutomationAccount_RG '$(AutomationAccount_RG)' -AutomationAccount_Subsciption '$(AutomationAccount_Subsciption)' -portfolioCode '$(portfolioCode)' -volumeType '$(volumeType)' -OUpath '$(OUpath)' -DomainName '$(DomainName)' -admingrouplist '$(admingrouplist)' -readergrouplist '$(readergrouplist)' -portfolio '$(portfolio)' -OUTier '$(OUTier)' -ADAdminGroup '$(ADAdminGroup)' -ADReaderGroup '$(ADReaderGroup)'"
+        FailOnStandardError: true
+        azurePowerShellVersion: 'LatestVersion'
+    - task: AzurePowerShell@5
+      displayName: Adding_VM_in_Recovery_Vault
+      condition: eq('${{ variables.adding_recoveryvault }}', 'true')
+      inputs:
+        azureSubscription: 'Non-Prod1'
+        ScriptType: 'FilePath'
+        ScriptPath: 'cloud-brokerage/application/build-infra/virtual-machine/create/scripts/wrapper-script-adding-recoveryvault.ps1'
+        ScriptArguments: '-deploymentName ''$(deploymentName_RecoveryVault)'' -subscription ''$(subscription)'' -vm_name ''$(vm_name)'' -vm_RG ''$(vm_RG)'' -recovery_vault_name ''$(recovery_vault_name)'' -recovery_vault_RG ''$(recovery_vault_RG)'' -key_VaultName ''$(key-VaultName)'' -key_Vault_RG ''$(key-Vault_RG)'''
+        FailOnStandardError: true
+        azurePowerShellVersion: 'LatestVersion'
+  - job: Deployment
+    dependsOn: Build_Infra_Virtual_Machine
+    condition: Succeeded()
+    displayName: Deployment
+    pool:
+      name: CICD-AKS-PROD
+    steps:
+    - template: ../deployment/kubernetes/inputs/sed-deployment.yml
+    - task: AzureKeyVault@1
+      displayName: "Fetch secrets from Azure KeyVault"
+      inputs:
+        azureSubscription: '$(azure_resouremanager_serviceconnection)'
+        KeyVaultName: '$(KeyVaultName)'
+        SecretsFilter: 'Y-Account-Password,Y-Account-UserId'
+        RunAsPreJob: false
+    - task: Kubernetes@1
+      displayName: Namespace_creation
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(Kubernetes_serviceconnection)'
+        command: 'apply'
+        useConfigurationFile: true
+        configuration: 'application/deployment/kubernetes/scripts/namespace.yml'
+    - task: Kubernetes@1
+      displayName: Service_account_creation
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(Kubernetes_serviceconnection)'
+        namespace: '$(namespace)'
+        command: 'apply'
+        useConfigurationFile: true
+        configuration: 'application/deployment/kubernetes/scripts/service_account.yml'
+    - task: "Kubernetes@1"
+      displayName: Role_creation
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(Kubernetes_serviceconnection)'
+        namespace: '$(namespace)'
+        command: 'apply'
+        useConfigurationFile: true
+        configuration: 'application/deployment/kubernetes/scripts/role.yml'
+    - task: "Kubernetes@1"
+      displayName: Rolebinding_creation
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(Kubernetes_serviceconnection)'
+        namespace: '$(namespace)'
+        command: 'apply'
+        useConfigurationFile: true
+        configuration: 'application/deployment/kubernetes/scripts/rolebinding.yml'
+    - task: "Kubernetes@1"
+      displayName: Registry_secret_creation
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(Kubernetes_serviceconnection)'
+        namespace: '$(namespace)'
+        command: 'create'
+        arguments: 'secret docker-registry nexuscred --docker-server=registry-plteun.shsrv.platform.mnscorp.net --docker-username=$(Y-Account-Password) --docker-password=$(Y-Account-UserId) --docker-email=none --namespace=$(namespace)'
+    - task: "Kubernetes@1"
+      displayName: Deployment
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(Kubernetes_serviceconnection)'
+        namespace: '$(namespace)'
+        command: 'apply'
+        useConfigurationFile: true
+        configuration: 'application/deployment/kubernetes/scripts/deployment.yml'
+- stage: Continuous_Testing
+  displayName: Continuous_Testing
+  jobs:
+  - job: Continuous_Testing
+    steps:
+    - script: echo "System Testing"
+- stage: PR_GitHub_Merge
+  displayName: PR_GitHub_Merge
+  jobs:
+  - job: PR_GitHub_Merge
+    steps:
+    - script: echo "Pull request is now Merged"
+- stage: Resource_Deletion
+  dependsOn: Deploy
+  condition: Failed()
+  displayName: Resource_Deletion
+  jobs:
+  - job: Resource_Deletion
+    displayName: Resource_Deletion
+    pool:
+      name: CICD-AKS-PROD
+    steps:
+    - task: Kubernetes@1
+      displayName: Namespace_deletion
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(Kubernetes_serviceconnection)'
+        command: 'delete'
+        arguments: 'ns $(namespace)'

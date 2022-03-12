@@ -1,0 +1,97 @@
+variables:
+  location: North Europe
+  tag_owner: poc-2
+  asg_name: cor-eun-brkpoc-asg-002
+  asg_RG: cor-eun-nprod-brkpoc-rg-001
+  nsg_name: cor-eun-nprod-brkpoc-nsg-001 #NSG name (Manual Creation)
+  nsg_RG: cor-eun-nprod-brkpoc-rg-001
+  nsg_rule_name: cor-eun-nprod-brk-nsgrule
+  nicName: domain-lin-nic-003
+  nic_RG: cor-eun-nprod-brkpoc-rg-001
+  vnetName: cor-eun-nprod-network-vnet-0001
+  vnet_RG: cor-eun-nprod-shsrv-rg-0001
+  subnetName: cor-eun-nprod-web-tier-snet-0001
+  vm_name: domain-lin-003
+  vm_RG: cor-eun-nprod-brkpoc-rg-001
+  storage_account_name: coreunbrkpocsa001
+  storage_account_RG: cor-eun-nprod-brkpoc-rg-001
+  asg_creation: trues   # true or false to create ASG
+  nsg_rule_creation: trues  # true or false to create NSG Rule
+  nic_creation: true  # true or false to create NIC
+  disk_creation: trues # true or false to create Disk
+  extension_creation: true # true or false to create Extension
+  adding_recoveryvault: trues # true or false to add VM in Azure Recovery Vault
+  #-----------ASG------------------
+  asg_deploymentName: poc-2
+  #----------NSG RULE--------------
+  nsg_rule_deploymentName:  poc-2			
+  nsg_rule_description: sets inbound rule
+  nsg_protocal: tcp
+  networkaccess: Allow	#Allow/Deny
+  direction: Inbound
+  priority: 1000
+  sourcePortRange: 8080
+  destinationPortRange: 3389
+  sourceAddressPrefix: 10.100.0.0/16
+  destinationAddressPrefix: 10.100.0.0/16
+  #----------NIC------------------
+  nic_deploymentName: poc-2
+  privateIPAllocationMethod: Dynamic
+  #----------VM-------------------
+  vm_deploymentName: poc-2
+  availabilityOptions: None
+  osType: Linux
+  vmSize: Standard_D2_v3
+  enable_BootDiagnostics: false
+  authenticationType: password
+  adminUsername: rootadmin 
+  imageType: Private
+  privateImageId: /subscriptions/b2b4796f-452c-485f-9efd-d8b45b566e17/resourceGroups/cor-eun-prod-shrimggly-rg-0001/providers/Microsoft.Compute/galleries/coreuwprodgallerysig0001/images/mands-corp-base-img-rhel74-v1  #If Private
+  osDiskCaching: ReadWrite
+  osDiskCreateOption: FromImage
+  osDiskSizeGB: 1023
+  key-VaultName: cor-eun-brkpoc-kv
+  key-Vault_RG: cor-eun-nprod-brkpoc-rg-001
+  ApplicationID: e3cf2974-fc00-45f7-8199-8ca086f7d4aa #service principal id
+  #-----------DISK-------------------
+  disk_deploymentName: poc-2
+  disk1_Name: disk01
+  disk1_Size: 100
+  disk1_lun: 3
+  disk1_caching: ReadWrite
+  disk2_Name: disk2
+  disk2_Size: 20
+  disk2_lun: 4
+  disk2_caching: ReadWrite
+  diskSku: Standard_LRS
+  zones: 2
+  attachDisk: true
+  disk_RG: cor-eun-nprod-brkpoc-rg-001
+  #--------------EXTENSIONS--------
+  extensions_deploymentname: poc-2
+  enablePostProvisioning: true
+  enableDiagnostics: true
+  enableEncryption: false
+  noOfDisks: 0
+  dataDiskDetails: 20:vg01:lv01,lv02,lv03:/test1,/test2,/test3:10,3,3:xfs 20:vg02:lv04,lv05,lv06:/test4,/test5,/test6:10,3,3:xfs
+  subscription: cf1b1b9a-5187-449d-a94d-0367c6a5e833
+  environmentCode: Nonprod
+  locationCode: Primary
+  AutomationAccount_name: plt-eun-prod-shsrv-agent-aaa-01
+  AutomationAccount_RG: cor-eun-prod-shsrv-rg-0001
+  AutomationAccount_Subsciption: b2b4796f-452c-485f-9efd-d8b45b566e17
+  portfolioCode: PLT
+  #-----------DomainJoin--------------
+  DomainName: MNSUKCATE.ADROOTCATE.MARKSANDSPENCERCATE.COM
+  OUpath: 'OU=Core Shared Services,OU=Portfolio,OU=Cloud,OU=Servers,DC=mnsukcate,DC=adrootcate,DC=marksandspencercate,DC=com'
+  admingrouplist: '"IT SRV Cloud Windows Admin","IT APP Shared Services Platform CI CD Admins Team"'
+  readergrouplist: '"IT ADM Cloud Windows Reader"'
+  portfolio: Platforms
+  OUTier: Web
+  ADAdminGroup: 'IT APP Shared Services Platform CI CD Admins Team'
+  ADReaderGroup: 'IT App AZ Cloud Exponence'
+  #-------------ADDING VM IN RECOVERYVAULT--------------
+  deploymentName_RecoveryVault: poc-2
+  recovery_vault_name: cor-eun-prod-brkpoc-recoveryvault1
+  recovery_vault_RG: cor-eun-nprod-brkpoc-rg-001
+  

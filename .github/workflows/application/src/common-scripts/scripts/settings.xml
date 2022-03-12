@@ -1,0 +1,27 @@
+<settings>
+    <pluginGroups>
+        <pluginGroup>org.sonarsource.scanner.maven</pluginGroup>
+    </pluginGroups>
+    <profiles>
+        <profile>
+            <id>sonar</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <sonar.host.url>
+                  SonarQube-url
+                </sonar.host.url>
+                <sonar.username>SonarQube-user</sonar.username>
+                <sonar.password>SonarQube-pass</sonar.password>
+            </properties>
+        </profile>
+     </profiles>
+     <servers>
+    <server>
+      <id>maven-snapshots</id>
+      <username>Nexus-user</username>
+      <password>Nexus-pass</password>
+    </server>            
+  </servers>
+</settings>

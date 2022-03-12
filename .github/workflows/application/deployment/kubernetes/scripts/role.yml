@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: role_name_var
+  namespace: namespace_var
+rules:
+- apiGroups:
+  - policy
+  resourceNames:
+  - azure-devops-selfhosted-psp
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use

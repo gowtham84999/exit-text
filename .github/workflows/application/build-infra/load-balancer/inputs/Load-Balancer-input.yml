@@ -1,0 +1,10 @@
+variables:
+  lb_deploymentname: loadbalancercreation
+  resourcegroup: poc-2-test
+  lbName: calculatorlb001
+  location: North Europe
+  vnetName: poc-2-vnet
+  subnet_Name: test
+  tag_owner: poc-2
+  lb_frontend_name: lbfrontend001
+  storage_account_name: poc2sa

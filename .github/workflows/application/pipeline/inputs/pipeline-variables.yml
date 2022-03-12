@@ -1,0 +1,7 @@
+variables:
+  azure_resouremanager_serviceconnection: AzureResourceManager
+  KeyVaultName: cicd-v2-shared-kv
+  Nexus_Docker_serviceconnection: Nexus-Docker
+  Nexus_repository_name: calculator
+  Nexus_tag: openjdk
+  Kubernetes_serviceconnection: AKS-Prod
