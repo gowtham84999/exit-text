@@ -33,7 +33,7 @@ jobs:
 
     - run: |
         docker build . -t registory001.azurecr.io/appdb:${{ github.sha }}
-        docker push registory0001.azurecr.io/appdb:${{ github.sha }}
+        docker push registory001.azurecr.io/appdb:${{ github.sha }}
     - name: Azure WebApp
       uses: Azure/webapps-deploy@v2
       with:
