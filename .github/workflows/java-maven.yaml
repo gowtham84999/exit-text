@@ -27,12 +27,12 @@ jobs:
 
     - uses: azure/docker-login@v1
         with:
-          login-server: registory0001.azurecr.io
+          login-server: registory001.azurecr.io
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
       - run: |
-          docker build . -t registory0001.azurecr.io/appdb:${{ github.sha }}
+          docker build . -t registory001.azurecr.io.azurecr.io/appdb:${{ github.sha }}
           docker push registory0001.azurecr.io/appdb:${{ github.sha }}
       - name: Azure WebApp
         uses: Azure/webapps-deploy@v2
