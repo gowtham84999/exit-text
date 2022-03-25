@@ -7,8 +7,10 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
 
+#build an ubuntu image with using maven  
+  build:
+  
     runs-on: ubuntu-latest
 
     steps:
@@ -21,12 +23,17 @@ jobs:
         cache: maven
     - name: Build with Maven
       run: mvn -B package --file application/pom.xml
-    
+  
+  
+# It will starts the usint testing of the mavan 
+  
   unit-test:
     
     steps:
     - name: Test with Maven
       run: mvn -B test --file application/pom.xml
+
+# Building the docker image and pushing into the ACR and deploying into the web apps
 
     - uses: azure/docker-login@v1
       with:
