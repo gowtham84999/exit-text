@@ -33,7 +33,7 @@ jobs:
     - name: Test with Maven
       run: mvn -B test --file application/pom.xml
 
-# Building the docker image and pushing into the ACR and deploying into the web apps
+# Building the docker image and pushing into the ACR and deploying into the webapps
 
     - uses: azure/docker-login@v1
       with:
